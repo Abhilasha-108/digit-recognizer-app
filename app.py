@@ -6,52 +6,57 @@ import tensorflow as tf
 from PIL import Image
 
 # --- PAGE CONFIGURATION ---
-st.set_page_config(page_title="Handwritten Digit Recognizer", page_icon="✍️", layout="wide")
+st.set_page_config(page_title="Handwritten Recognizer", page_icon="✍️", layout="wide")
 
-# --- LOAD THE TRAINED MODEL ---
+# --- LOAD MODELS ---
 @st.cache_resource
-def load_model():
-    return tf.keras.models.load_model('digit_recognizer.h5')
-model = load_model()
+def load_models():
+    digit_model = tf.keras.models.load_model('digit_recognizer.h5')
+    alphabet_model = tf.keras.models.load_model('alphabet_recognizer.h5')
+    return digit_model, alphabet_model
+
+digit_model, alphabet_model = load_models()
 
 # --- WEB APP INTERFACE ---
-st.title("✍️ Handwritten Digit Recognizer")
-st.markdown("Draw a digit (0-9) on the canvas, and the AI will predict what it is.")
+st.title("✍️ Handwritten Digit & Alphabet Recognizer")
 
-col1, col2 = st.columns([1, 1])
+# --- USER SELECTION ---
+st.sidebar.header("Select Mode")
+mode = st.sidebar.radio("Choose what you want to recognize:", ('Digit', 'Alphabet'))
 
-with col1:
-    st.subheader("Drawing Canvas")
-    # Create a canvas component for drawing
-    canvas_result = st_canvas(
-        stroke_width=20,
-        stroke_color="#FFFFFF",
-        background_color="#000000",
-        height=280,
-        width=280,
-        drawing_mode="freedraw",
-        key="canvas",
-    )
+# --- DRAWING CANVAS ---
+st.subheader(f"Draw a single {mode.lower()} on the canvas")
+canvas_result = st_canvas(
+    stroke_width=20,
+    stroke_color="#FFFFFF",
+    background_color="#000000",
+    height=280,
+    width=280,
+    drawing_mode="freedraw",
+    key="canvas",
+)
 
-with col2:
-    st.subheader("Prediction")
-    if st.button('Predict'):
-        if canvas_result.image_data is not None:
-            # 1. Get the drawing from the canvas
-            img_data = canvas_result.image_data
+# --- PREDICTION LOGIC ---
+if st.button(f'Recognize {mode}'):
+    if canvas_result.image_data is not None:
+        # Preprocess the image
+        image = Image.fromarray(canvas_result.image_data.astype('uint8'), 'RGBA').convert('L')
+        image_resized = image.resize((28, 28))
+        img_array = np.array(image_resized) / 255.0
+        img_reshaped = img_array.reshape(1, 28, 28, 1)
 
-            # 2. Process the image to match the model's training data format. This is a crucial step.
-            image = Image.fromarray(img_data.astype('uint8'), 'RGBA').convert('L')
-            image_resized = image.resize((28, 28))
-            img_array = np.array(image_resized) / 255.0
-            img_reshaped = img_array.reshape(1, 28, 28, 1)
+        # --- CHOOSE MODEL AND PREDICT ---
+        if mode == 'Digit':
+            prediction = digit_model.predict(img_reshaped)
+            result = np.argmax(prediction)
+        else: # Alphabet
+            prediction = alphabet_model.predict(img_reshaped)
+            # Map the prediction index to a letter (0=A, 1=B, etc.)
+            alphabet_map = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+            result = alphabet_map[np.argmax(prediction)]
+        
+        confidence = np.max(prediction)
 
-            # 3. Make a prediction
-            prediction = model.predict(img_reshaped)
-            predicted_digit = np.argmax(prediction)
-            confidence = np.max(prediction)
-
-            # 4. Display the result
-            st.metric(label="Predicted Digit", value=f"{predicted_digit}")
-            st.metric(label="Confidence", value=f"{confidence:.2%}")
-            st.image(image_resized, caption='Processed 28x28 Image')
+        # --- DISPLAY RESULT ---
+        st.success(f'The model predicts: {result}')
+        st.metric(label="Confidence", value=f"{confidence:.2%}")

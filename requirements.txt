@@ -3,3 +3,4 @@ tensorflow
 numpy
 Pillow
 streamlit-drawable-canvas
+tensorflow-datasets
