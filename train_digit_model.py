@@ -2,35 +2,45 @@
 import tensorflow as tf
 from tensorflow.keras.datasets import mnist
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Conv2D, Flatten, MaxPooling2D
+# We add Dropout for better generalization
+from tensorflow.keras.layers import Dense, Conv2D, Flatten, MaxPooling2D, Dropout
 from tensorflow.keras.utils import to_categorical
 
-# 1. Load Data: We use the built-in MNIST dataset of 70,000 handwritten digits.
+# 1. Load and Preprocess the Data
+print("Loading MNIST dataset...")
 (x_train, y_train), (x_test, y_test) = mnist.load_data()
 
-# 2. Preprocess Data: Neural networks need data in a specific, consistent format.
-# We reshape images to 28x28x1 and normalize pixel values from 0-255 to 0-1.
 x_train = x_train.reshape(x_train.shape[0], 28, 28, 1).astype('float32') / 255
 x_test = x_test.reshape(x_test.shape[0], 28, 28, 1).astype('float32') / 255
-# We one-hot encode the labels (e.g., 5 becomes [0,0,0,0,0,1,0,0,0,0]).
+
 y_train = to_categorical(y_train)
 y_test = to_categorical(y_test)
+print("Data preprocessed successfully.")
 
-# 3. Build Model: We use a Convolutional Neural Network (CNN), which is ideal for finding patterns in images.
+# 2. Build a Deeper and More Robust CNN Model
+print("Building a deeper CNN model...")
 model = Sequential([
     Conv2D(32, kernel_size=(3, 3), activation='relu', input_shape=(28, 28, 1)),
     MaxPooling2D(pool_size=(2, 2)),
+    # Add a second convolutional layer
+    Conv2D(64, kernel_size=(3, 3), activation='relu'),
+    MaxPooling2D(pool_size=(2, 2)),
     Flatten(),
     Dense(128, activation='relu'),
-    Dense(10, activation='softmax') # The final layer gives a probability for each of the 10 digits.
+    # Add a Dropout layer to prevent overfitting
+    Dropout(0.5),
+    Dense(10, activation='softmax')
 ])
 
-# 4. Compile Model: This sets up the model for training.
+# 3. Compile the Model
 model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+print("Model compiled successfully.")
 
-# 5. Train Model: The model "learns" by looking at the images and their correct labels.
-model.fit(x_train, y_train, validation_data=(x_test, y_test), epochs=5)
+# 4. Train the Model for Longer
+print("Training the model for 10 epochs...")
+model.fit(x_train, y_train, validation_data=(x_test, y_test), epochs=10) # Increased epochs
+print("Model training complete.")
 
-# 6. Save Model: We save our trained "brain" to a file so the web app can use it.
+# 5. Save the New, Improved Model
 model.save('digit_recognizer.h5')
-print("Model saved as digit_recognizer.h5")
+print("New, improved model saved to digit_recognizer.h5")
